@@ -1,0 +1,130 @@
+---
+title: "Kaggle - Titanic"
+author: "Alejandro - Joan"
+date: "3/9/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r eval=FALSE, message=TRUE, warning=TRUE, include=FALSE}
+pacman::p_load("ggplot2",
+               'ggthemes',
+               'scales',
+               'dplyr',
+               'mice',
+               'randomForest')
+```
+
+## Titanic competition
+
+Visualización de los datos de entrenamiento
+
+```{r titanic_test, echo=TRUE, warning=FALSE}
+setwd("~/Olimpia IT/Documentos/Kaggle/Titanic")
+test <- read.csv("~/Olimpia IT/Documentos/Kaggle/Titanic/test.csv", stringsAsFactors = F)
+head(test)
+```
+
+```{r titanic_train, echo=TRUE, warning=FALSE}
+train <- read.csv("~/Olimpia IT/Documentos/Kaggle/Titanic/train.csv", stringsAsFactors = F)
+head(train)
+```
+
+```{r echo=TRUE}
+gender_submission <- read.csv("~/Olimpia IT/Documentos/Kaggle/Titanic/gender_submission.csv", stringsAsFactors = F)
+head(gender_submission)
+```
+
+
+```{r}
+full  <- bind_rows(train, test) # bind training & test data
+# check data
+str(full)
+```
+
+```{r}
+# Grab title from passenger names
+full$Title <- gsub('(.*, )|(\\..*)', '', full$Name)
+
+# Show title counts by sex
+table(full$Sex, full$Title)
+```
+
+```{r}
+# Titles with very low cell counts to be combined to "rare" level
+rare_title <- c('Dona', 'Lady', 'the Countess','Capt', 'Col', 'Don', 
+                'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer')
+```
+
+```{r}
+# Also reassign mlle, ms, and mme accordingly
+full$Title[full$Title == 'Mlle']        <- 'Miss' 
+full$Title[full$Title == 'Ms']          <- 'Miss'
+full$Title[full$Title == 'Mme']         <- 'Mrs' 
+full$Title[full$Title %in% rare_title]  <- 'Rare Title'
+```
+
+```{r}
+# Show title counts by sex again
+table(full$Sex, full$Title)
+```
+
+```{r}
+# Finally, grab surname from passenger name
+full$Surname <- sapply(full$Name,  
+                      function(x) strsplit(x, split = '[,.]')[[1]][1])
+```
+
+```{r}
+cat(paste('We have <b>', nlevels(factor(full$Surname)), '</b> unique surnames. I would be interested to infer ethnicity based on surname --- another time.'))
+```
+
+```{r}
+# Create a family size variable including the passenger themselves
+full$Fsize <- full$SibSp + full$Parch + 1
+```
+
+```{r}
+# Create a family variable 
+full$Family <- paste(full$Surname, full$Fsize, sep='_')
+```
+
+```{r}
+ggplot(full[1:891,], aes(x = Fsize, fill = factor(Survived))) +
+  geom_bar(stat='count', position='dodge') +
+  scale_x_continuous(breaks=c(1:11)) +
+  labs(x = 'Family Size') +
+  theme_few()
+```
+
+```{r}
+# Discretize family size
+full$FsizeD[full$Fsize == 1] <- 'singleton'
+full$FsizeD[full$Fsize < 5 & full$Fsize > 1] <- 'small'
+full$FsizeD[full$Fsize > 4] <- 'large'
+```
+
+```{r}
+# Show family size by survival using a mosaic plot
+mosaicplot(table(full$FsizeD, full$Survived), main='Family Size by Survival', shade=TRUE)
+```
+
+```{r}
+# This variable appears to have a lot of missing values
+full$Cabin[1:28]
+```
+
+```{r}
+# The first character is the deck. For example:
+strsplit(full$Cabin[2], NULL)[[1]]
+```
+
+```{r}
+full$Deck<-factor(sapply(full$Cabin, function(x) strsplit(x, NULL)[[1]][1]))
+```
+
+
+
